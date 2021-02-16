@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Socket.IO Client</title>
+</head>
+<body>
+<div>
+  <input type="text" name="room_name" id="room_name">
+  <button id="create_room_btn">Create Room</button>
+</div>
+<div>
+  <input type="text" name="room_join_name" id="room_join_name">
+  <button id="room_join_btn">Join</button>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script>
+
+  var socket = io();
+  $("#create_room_btn").on("click",()=>{
+    document.title = $("#room_name").val()
+    socket.emit("create_room_event",{room_name:$("#room_name").val(),socket_id:socket.id})
+  })
+  $("#room_join_btn").on("click",()=>{
+    socket.emit("join_room_event",{room_name: $("#room_join_name").val(), socket_id: socket.id, display_name: prompt("Name?")})
+  })
+  socket.on("room_joined_event",(msg)=>alert(msg))
+  socket.on("room_not_exist_event",(msg)=>alert(msg))
+  socket.on("user_disconnected_event",(msg)=>alert(msg))
+  socket.on("room_created_event",(data)=>{
+    if(data.status == "created"){
+      alert(`${data.room_name} created`)
+      socket.emit("join_room_event",{room_name: data.room_name, socket_id: socket.id, display_name: prompt("Name?")})
+    }else{
+      console.log("Error occured")
+    }
+  })
+</script>
+</body>
+</html>
