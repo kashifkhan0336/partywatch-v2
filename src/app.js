@@ -2,6 +2,8 @@ const app = require('express')();
 const http = require('http').Server(app);
 const io = require('socket.io')(http);
 const _ = require("lodash")
+const cors = require('cors')
+app.use(cors())
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
@@ -27,8 +29,8 @@ function join_room(room_name, socket_id, display_name) {
 
 
 //TODO
-//Handle room owner disconnection
-
+//Handle room owner disconnection(done)
+//Handle post room join communication
 
 
 
@@ -45,11 +47,25 @@ function leave_room_disconnection(socket_id) {
     if(t){
       //console.log(`${t.room_mate_name} with socket_id ${t.room_mate_id} will be remove from ${element.room_name}`)
       let room = rooms.find(o => o.room_name === element.room_name)
-      //remove user from room_mates
-      room.room_mates = room.room_mates.filter((el)=>{return el.room_mate_id != t.room_mate_id})
-      console.log(room)
-      //inform room owner about user disconnection
-      io.to(room.room_owner).emit("user_disconnected_event", `${t.room_mate_name} with socket_id ${t.room_mate_id} left your room ${element.room_name}`)
+      //if the disconnected user is room owner
+      if(t.room_mate_id === room.room_owner){
+        console.log("Room owner disconnected")
+        //console.log(t.room_mate_name)
+        room.room_mates.forEach((room_mate)=>{
+          if(room_mate.room_mate_id !== room.owner){
+            //inform users about room owner disconnection
+            io.to(room_mate.room_mate_id).emit("room_owner_disconnected_event",`Room owner disconnected`)
+          }
+        })
+        rooms = rooms.filter(function(el){return el.room_owner != t.room_mate_id})
+        //console.log(rooms)
+      }else{
+        //remove user from room_mates
+        room.room_mates = room.room_mates.filter((el)=>{return el.room_mate_id != t.room_mate_id})
+        console.log(room)
+        //inform room owner about user disconnection
+        io.to(room.room_owner).emit("user_disconnected_event", `${t.room_mate_name} with socket_id ${t.room_mate_id} left your room ${element.room_name}`)
+      }
     }
   })
 }
@@ -61,20 +77,30 @@ function create_room(data) {
   }
   rooms.push(room_metadata)
 }
+function custom_message_event(message, room_name){
+  let room = rooms.find(o => o.room_name == room_name);
+  room.room_mates.forEach((e)=>{
+    if(room.room_owner !== e.room_mate_id){
+          io.to(e.room_mate_id).emit("message_from_server_event",`${message} in room ${room_name}`)
+    }
+  })
+}
 io.on('connection', (socket) => {
   console.log('a user connected');
   socket.on("disconnect",()=>{
   	console.log("a user disconnected")
     leave_room_disconnection(socket.id)
   });
+  socket.on("message_from_client_event",(data)=>{
+    console.log(data.room_name+"->"+data.message)
+    custom_message_event(data.message, data.room_name)
+  })
   socket.on("join_room_event",(data)=>{
     join_room(data.room_name, data.socket_id, data.display_name)
-    console.log(rooms)
   })
   socket.on("create_room_event", (data)=>{
     create_room(data)
     io.to(socket.id).emit("room_created_event",{status:"created",room_name:data.room_name})
-    console.log(rooms)
   })
 });
 

@@ -5,32 +5,67 @@
 </head>
 <body>
 <div>
-  <input type="text" name="room_name" id="room_name">
+  Room name :<input type="text" name="room_name" id="room_name">
   <button id="create_room_btn">Create Room</button>
 </div>
+<br />
 <div>
-  <input type="text" name="room_join_name" id="room_join_name">
+  Room name :<input type="text" name="room_join_name" id="room_join_name">
   <button id="room_join_btn">Join</button>
+</div>
+<br />
+<div hidden>
+  Message : <input type="text" name="" id="msg">
+  <button id="sendMsg">Send</button>
+</div>
+<div>
+  <video controls src="http://192.168.1.102/Multilive%20-%20Entertainment%20-%20Portal.mp4"></video>
 </div>
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
 <script>
-
+  let currentRoom;
   var socket = io();
   $("#create_room_btn").on("click",()=>{
     document.title = $("#room_name").val()
     socket.emit("create_room_event",{room_name:$("#room_name").val(),socket_id:socket.id})
   })
-  $("#room_join_btn").on("click",()=>{
-    socket.emit("join_room_event",{room_name: $("#room_join_name").val(), socket_id: socket.id, display_name: prompt("Name?")})
+
+  $("video").on("play",()=>{
+    send_event("Video Played")
   })
+
+
+
+  $("#room_join_btn").on("click",()=>{
+    currentRoom = $("#room_join_name").val();
+    socket.emit("join_room_event",{room_name: $("#room_join_name").val(), socket_id: socket.id, display_name: $("#room_join_name").val()+"_client"})
+  })
+
+  // $("#sendMsg").on("click",()=>{
+  //   if(currentRoom !== undefined){
+  //     socket.emit("message_from_client_event", {room_name: currentRoom, "message": $("#msg").val()})
+  //   }else{
+  //     alert("join room first")
+  //   }
+  // })
+  function send_event(msg) {
+    if(currentRoom !== undefined){
+      socket.emit("message_from_client_event", {room_name: currentRoom, "message": msg})
+    }else{
+      alert("join room first")
+    }
+  }
+  socket.on("message_from_server_event",(msg)=>alert(msg))
   socket.on("room_joined_event",(msg)=>alert(msg))
   socket.on("room_not_exist_event",(msg)=>alert(msg))
   socket.on("user_disconnected_event",(msg)=>alert(msg))
+  socket.on("room_owner_disconnected_event",(msg)=>alert(msg))
   socket.on("room_created_event",(data)=>{
     if(data.status == "created"){
       alert(`${data.room_name} created`)
-      socket.emit("join_room_event",{room_name: data.room_name, socket_id: socket.id, display_name: prompt("Name?")})
+      socket.emit("join_room_event",{room_name: data.room_name, socket_id: socket.id, display_name: $("#room_join_name").val()+"_owner"})
+      currentRoom = data.room_name
     }else{
       console.log("Error occured")
     }
